@@ -1,0 +1,120 @@
+---
+title: "Machine Learning project"
+author: "Sanmugdh Mandal"
+date: "September 2, 2017"
+output: html_document
+---
+##Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: <http://groupware.les.inf.puc-rio.br/har> 
+
+
+Data
+
+The training data for this project are available here: <https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv>
+
+The test data are available here: <https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv>
+
+The data for this project come from this source: <http://groupware.les.inf.puc-rio.br/har>. 
+
+Now first thing first, let's install all packages and set seed
+
+##Packages
+
+```{r}
+#library(ggplot2)
+library(caret)
+library(randomForest)
+library(rpart)
+library(rpart.plot)
+set.seed(1234)
+```
+
+## Data Loading
+
+Loading the data and handling missing values
+
+```{r}
+training <- read.csv("C:/Sanmugdha/Data Science/coursera/pml-training.csv", na.strings=c("NA","#DIV/0!", ""))
+testing <- read.csv("C:/Sanmugdha/Data Science/coursera/pml-testing.csv", na.strings=c("NA","#DIV/0!", "")) 
+
+# Delete columns with all missing values
+trainingset<-training[,colSums(is.na(training)) == 0]
+testingset <-testing[,colSums(is.na(testing)) == 0]
+
+#Remove irrelevent variable
+
+trainingset   <-trainingset[,-c(1:7)]
+testingset <-testingset[,-c(1:7)]
+```
+Let's see the our outcome variable
+```{r}
+summary(trainingset$classe)
+```
+Class A corresponds to the specified execution of the exercise, while the other 4 classes correspond to common mistakes.
+Prediction evaluations will be based on maximizing the accuracy and minimizing the out-of-sample error. All other available variables after cleaning will be used for prediction.
+Two models will be tested using decision tree and random forest algorithms. The model with the highest accuracy will be chosen as our final model.
+
+Let's draw a plot of the outcome variable which will allow us to see the frequency of each levels in the  Training data set and compare one another.
+
+```{r}
+plot(trainingset$classe,main="variable classe within the Training data set", xlab="classe levels", ylab="Frequency")
+```
+From graph it's evident that A is the most frequent and D is the least frequent occurance.
+
+Now we will partion training set into 2 subsets for validation
+
+```{r}
+subsamples <- createDataPartition(y=trainingset$classe, p=0.75, list=FALSE)
+subTraining <- trainingset[subsamples, ] 
+subTesting <- trainingset[-subsamples, ]
+```
+
+##Decision Tree Model
+```{r}
+library(rpart)
+model1 <- rpart(classe ~ ., data=subTraining, method="class")
+
+# Predicting:
+prediction1 <- predict(model1, subTesting, type = "class")
+
+# Test results on our subTesting data set:
+confusionMatrix(prediction1, subTesting$classe)
+```
+##Random Forest Model
+
+```{r}
+model2 <- randomForest(classe ~. , data=subTraining, method="class")
+
+# Predicting:
+prediction2 <- predict(model2, subTesting, type = "class")
+
+# Test results on subTesting data set:
+confusionMatrix(prediction2, subTesting$classe)
+```
+
+##Conclusion
+
+As expected, Random Forest algorithm performed better than Decision Trees.
+Accuracy for Random Forest model was 0.995 (95% CI: (0.993, 0.997)) compared to 0.739 (95% CI: (0.727, 0.752)) for Decision Tree model. The random Forest model is choosen. The accuracy of the model is 0.995. The expected out-of-sample error is estimated at 0.005, or 0.5%. The expected out-of-sample error is calculated as 1 - accuracy for predictions made against the cross-validation set. Our Test data set comprises 20 cases. With an accuracy above 99% on our cross-validation data, we can expect that very few, or none, of the test samples will be missclassified.
+
+##Submission
+
+```{r}
+# predict outcome levels on the original Testing data set using Random Forest algorithm
+predictfinal <- predict(model2, testingset, type="class")
+predictfinal
+```
+
+## Write files for submission
+```{r}
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+pml_write_files(predictfinal)
+```
